@@ -1,108 +1,108 @@
 # ServidorDHCP
 
-Práctica de instalación y configuración de un servidor DHCP con **Kea** en **Ubuntu Server**, con un cliente **Zorin OS** y análisis del tráfico con **Wireshark**.
+Pràctica d'instal·lació i configuració d'un servidor DHCP amb **Kea** a **Ubuntu Server**, amb un client **Zorin OS** i anàlisi del trànsit amb **Wireshark**.
 
-- **Alumno:** Toni Correa
-- **Número de lista (x):** 7 → red **192.169.7.0/24**
+- **Alumne:** Toni Correa
+- **Número de llista (x):** 7 → xarxa **192.169.7.0/24**
 
-## Índice
+## Índex
 
-1. [Esquema de la práctica](#1-esquema-de-la-práctica)
-2. [Preparación de las máquinas en VirtualBox](#2-preparación-de-las-máquinas-en-virtualbox)
-3. [Configuración de red del servidor](#3-configuración-de-red-del-servidor)
-4. [Instalación de Kea y desactivación de DHCPv6 y DDNS](#4-instalación-de-kea-y-desactivación-de-dhcpv6-y-ddns)
-5. [Configuración del archivo kea-dhcp4.conf](#5-configuración-del-archivo-kea-dhcp4conf)
-6. [Comprobación de la sintaxis y arranque del servicio](#6-comprobación-de-la-sintaxis-y-arranque-del-servicio)
-7. [Wireshark en el cliente](#7-wireshark-en-el-cliente)
-8. [Captura de la negociación DHCP](#8-captura-de-la-negociación-dhcp)
-9. [Análisis de los paquetes: broadcast y unicast](#9-análisis-de-los-paquetes-broadcast-y-unicast)
-10. [Comprobación del cliente](#10-comprobación-del-cliente)
-11. [Concesiones del servidor](#11-concesiones-del-servidor)
-12. [Reserva de una IP para el cliente](#12-reserva-de-una-ip-para-el-cliente)
-13. [Conclusiones](#13-conclusiones)
+1. [Esquema de la pràctica](#1-esquema-de-la-pràctica)
+2. [Preparació de les màquines a VirtualBox](#2-preparació-de-les-màquines-a-virtualbox)
+3. [Configuració de xarxa del servidor](#3-configuració-de-xarxa-del-servidor)
+4. [Instal·lació de Kea i desactivació de DHCPv6 i DDNS](#4-installació-de-kea-i-desactivació-de-dhcpv6-i-ddns)
+5. [Configuració de l'arxiu kea-dhcp4.conf](#5-configuració-de-larxiu-kea-dhcp4conf)
+6. [Comprovació de la sintaxi i arrencada del servei](#6-comprovació-de-la-sintaxi-i-arrencada-del-servei)
+7. [Wireshark al client](#7-wireshark-al-client)
+8. [Captura de la negociació DHCP](#8-captura-de-la-negociació-dhcp)
+9. [Anàlisi dels paquets: broadcast i unicast](#9-anàlisi-dels-paquets-broadcast-i-unicast)
+10. [Comprovació del client](#10-comprovació-del-client)
+11. [Concessions del servidor](#11-concessions-del-servidor)
+12. [Reserva d'una IP per al client](#12-reserva-duna-ip-per-al-client)
+13. [Conclusions](#13-conclusions)
 
 ---
 
-## 1. Esquema de la práctica
+## 1. Esquema de la pràctica
 
-| Máquina | Interfaz | Modo en VirtualBox | Dirección |
+| Màquina | Interfície | Mode a VirtualBox | Adreça |
 |---|---|---|---|
-| Ubuntu Server (`srv-smx01`) | `enp0s3` | NAT | DHCP de VirtualBox (acceso a Internet) |
-| Ubuntu Server (`srv-smx01`) | `enp0s8` | Red interna `Internet` | **192.169.7.1/24** (estática) |
-| Zorin (`fxsty-VirtualBox`) | `enp0s3` | NAT → Red interna `Internet` | Recibida por DHCP |
+| Ubuntu Server (`srv-smx01`) | `enp0s3` | NAT | DHCP de VirtualBox (accés a Internet) |
+| Ubuntu Server (`srv-smx01`) | `enp0s8` | Xarxa interna `Internet` | **192.169.7.1/24** (estàtica) |
+| Zorin (`fxsty-VirtualBox`) | `enp0s3` | NAT → Xarxa interna `Internet` | Rebuda per DHCP |
 
-Parámetros que reparte el servidor DHCP:
+Paràmetres que reparteix el servidor DHCP:
 
-| Parámetro | Valor |
+| Paràmetre | Valor |
 |---|---|
-| Subred | 192.169.7.0/24 |
+| Subxarxa | 192.169.7.0/24 |
 | Pool | 192.169.7.10 – 192.169.7.50 |
-| Puerta de enlace | 192.169.7.254 |
+| Porta d'enllaç | 192.169.7.254 |
 | DNS | 8.8.8.8 |
-| Reserva | 192.169.7.55 para la MAC `08:00:27:a8:06:a5` (Zorin) |
+| Reserva | 192.169.7.55 per a la MAC `08:00:27:a8:06:a5` (Zorin) |
 
 ---
 
-## 2. Preparación de las máquinas en VirtualBox
+## 2. Preparació de les màquines a VirtualBox
 
-El servidor necesita dos interfaces: la primera en **NAT**, que le da acceso a Internet, y la segunda en **Red interna**, que es por donde dará el servicio DHCP.
+El servidor necessita dues interfícies: la primera en **NAT**, que li dona accés a Internet, i la segona en **Xarxa interna**, que és per on donarà el servei DHCP.
 
 **Adaptador 1 del servidor en NAT:**
 
 ![Adaptador 1 del servidor en NAT](media/cap1.png)
 
-**Adaptador 2 del servidor en Red interna**, con el nombre `Internet`. El cliente tendrá que usar exactamente el mismo nombre para estar en la misma red:
+**Adaptador 2 del servidor en Xarxa interna**, amb el nom `Internet`. El client haurà de fer servir exactament el mateix nom per estar a la mateixa xarxa:
 
-![Adaptador 2 del servidor en Red interna](media/cap2.png)
+![Adaptador 2 del servidor en Xarxa interna](media/cap2.png)
 
-El **Zorin** empieza con su adaptador en **NAT**, para poder instalar Wireshark desde Internet. Más adelante se cambiará a Red interna:
+El **Zorin** comença amb l'adaptador en **NAT**, per poder instal·lar Wireshark des d'Internet. Més endavant es canviarà a Xarxa interna:
 
 ![Adaptador del Zorin en NAT](media/cap3.png)
 
 ---
 
-## 3. Configuración de red del servidor
+## 3. Configuració de xarxa del servidor
 
-Se configura la red con **netplan** (`/etc/netplan/50-cloud-init.yaml`):
+La xarxa es configura amb **netplan** (`/etc/netplan/50-cloud-init.yaml`):
 
-- `enp0s3` (NAT) recibe la IP por DHCP.
-- `enp0s8` (red interna) tiene la IP estática **192.169.7.1/24**, **sin puerta de enlace ni servidor DNS**, tal como pide el enunciado.
+- `enp0s3` (NAT) rep la IP per DHCP.
+- `enp0s8` (xarxa interna) té la IP estàtica **192.169.7.1/24**, **sense porta d'enllaç ni servidor de noms**, tal com demana l'enunciat.
 
-![Archivo de netplan](media/cap4.png)
+![Arxiu de netplan](media/cap4.png)
 
-Se aplican los cambios con `sudo netplan apply` y se comprueba con `ip a` que la interfaz `enp0s8` tiene la IP 192.169.7.1:
+S'apliquen els canvis amb `sudo netplan apply` i es comprova amb `ip a` que la interfície `enp0s8` té la IP 192.169.7.1:
 
-![ip a del servidor con la 192.169.7.1](media/cap5.png)
+![ip a del servidor amb la 192.169.7.1](media/cap5.png)
 
 ---
 
-## 4. Instalación de Kea y desactivación de DHCPv6 y DDNS
+## 4. Instal·lació de Kea i desactivació de DHCPv6 i DDNS
 
-Se instala Kea:
+S'instal·la Kea:
 
 ```bash
 sudo apt update
 sudo apt install kea
 ```
 
-El paquete instala varios servicios: el servidor DHCPv4, el DHCPv6, el DDNS y el agente de control. En esta práctica solo se usa **DHCPv4**, así que hay que desactivar el **DHCPv6** y el **DDNS**.
+El paquet instal·la diversos serveis: el servidor DHCPv4, el DHCPv6, el DDNS i l'agent de control. En aquesta pràctica només es fa servir el **DHCPv4**, així que cal desactivar el **DHCPv6** i el **DDNS**.
 
-En la presentación se indica que se haga en el archivo `keactrl.conf`, pero en Ubuntu **este archivo no existe**, porque los servicios de Kea se gestionan con **systemd**. Por eso se paran y desactivan con `systemctl`:
+A la presentació s'indica que es faci a l'arxiu `keactrl.conf`, però a Ubuntu **aquest arxiu no existeix**, perquè els serveis de Kea es gestionen amb **systemd**. Per això s'aturen i es desactiven amb `systemctl`:
 
 ```bash
 sudo systemctl disable --now kea-dhcp6-server
 sudo systemctl disable --now kea-dhcp-ddns-server
 ```
 
-Se comprueba que los dos servicios han quedado desactivados (`disabled`) y parados (`inactive`):
+Es comprova que els dos serveis han quedat desactivats (`disabled`) i aturats (`inactive`):
 
-![DHCPv6 y DDNS desactivados](media/cap6.png)
+![DHCPv6 i DDNS desactivats](media/cap6.png)
 
 ---
 
-## 5. Configuración del archivo kea-dhcp4.conf
+## 5. Configuració de l'arxiu kea-dhcp4.conf
 
-Primero se renombra el archivo original para no perderlo y poder consultarlo como ejemplo. Después se crea uno nuevo:
+Primer es canvia el nom de l'arxiu original per no perdre'l i poder consultar-lo com a exemple. Després se'n crea un de nou:
 
 ```bash
 cd /etc/kea
@@ -110,94 +110,94 @@ sudo mv kea-dhcp4.conf old-kea-dhcp4.conf
 sudo nano kea-dhcp4.conf
 ```
 
-Contenido del archivo nuevo:
+Contingut de l'arxiu nou:
 
-![Archivo kea-dhcp4.conf](media/cap7.png)
+![Arxiu kea-dhcp4.conf](media/cap7.png)
 
-Explicación de cada parte:
+Explicació de cada part:
 
-| Parámetro | Para qué sirve |
+| Paràmetre | Per a què serveix |
 |---|---|
-| `interfaces-config` | Interfaz por la que escucha el servidor: `enp0s8`, la de la red interna. |
-| `valid-lifetime` | Duración de la concesión: 4000 segundos. |
-| `renew-timer` | A los 1000 segundos el cliente intenta renovar la concesión con el mismo servidor. |
-| `rebind-timer` | A los 2000 segundos, si el servidor no ha contestado al renew, el cliente pide la renovación a cualquier servidor. |
-| `lease-database` | Las concesiones se guardan en un archivo (`memfile`) de forma persistente, en `/var/lib/kea/kea-leases4.csv`. |
-| `subnet4` → `id` | Identificador de la subred. Las versiones nuevas de Kea lo piden; si no se pone, sale un aviso. |
-| `subnet4` → `subnet` | La subred de trabajo: 192.169.7.0/24. |
-| `pools` | Rango de direcciones que se reparten: de la .10 a la .50. |
-| `option-data` → `routers` | Puerta de enlace que se envía al cliente: 192.169.7.254. |
-| `option-data` → `domain-name-servers` | Servidor DNS que se envía al cliente: 8.8.8.8. |
+| `interfaces-config` | Interfície per on escolta el servidor: `enp0s8`, la de la xarxa interna. |
+| `valid-lifetime` | Durada de la concessió: 4000 segons. |
+| `renew-timer` | Als 1000 segons el client intenta renovar la concessió amb el mateix servidor. |
+| `rebind-timer` | Als 2000 segons, si el servidor no ha contestat al renew, el client demana la renovació a qualsevol servidor. |
+| `lease-database` | Les concessions es guarden en un arxiu (`memfile`) de manera persistent, a `/var/lib/kea/kea-leases4.csv`. |
+| `subnet4` → `id` | Identificador de la subxarxa. Les versions noves de Kea el demanen; si no es posa, surt un avís. |
+| `subnet4` → `subnet` | La subxarxa de treball: 192.169.7.0/24. |
+| `pools` | Rang d'adreces que es reparteixen: de la .10 a la .50. |
+| `option-data` → `routers` | Porta d'enllaç que s'envia al client: 192.169.7.254. |
+| `option-data` → `domain-name-servers` | Servidor DNS que s'envia al client: 8.8.8.8. |
 
-Al ser un archivo **JSON** hay que fijarse bien en el formato: los bloques van entre `{ }`, las listas entre `[ ]`, los elementos se separan con comas y el último elemento de un bloque **no** lleva coma.
+Com que és un arxiu **JSON** cal fixar-se bé en el format: els blocs van entre `{ }`, les llistes entre `[ ]`, els elements se separen amb comes i l'últim element d'un bloc **no** porta coma.
 
 ---
 
-## 6. Comprobación de la sintaxis y arranque del servicio
+## 6. Comprovació de la sintaxi i arrencada del servei
 
-Se comprueba la sintaxis del archivo:
+Es comprova la sintaxi de l'arxiu:
 
 ```bash
 sudo kea-dhcp4 -t /etc/kea/kea-dhcp4.conf
 ```
 
-![Comprobación de la sintaxis](media/cap8.png)
+![Comprovació de la sintaxi](media/cap8.png)
 
-No aparece ningún `ERROR` (los `WARN` son avisos normales del multithreading). En la salida se ve que la configuración se ha leído bien: se ha añadido la subred **192.169.7.0/24** con los temporizadores t1=1000, t2=2000 y valid-lifetime=4000, y el servidor escucha en la interfaz **enp0s8**.
+No apareix cap `ERROR` (els `WARN` són avisos normals del multithreading). A la sortida es veu que la configuració s'ha llegit bé: s'ha afegit la subxarxa **192.169.7.0/24** amb els temporitzadors t1=1000, t2=2000 i valid-lifetime=4000, i el servidor escolta a la interfície **enp0s8**.
 
-> **Problema encontrado:** la primera vez que se comprobó la sintaxis aparecía la subred 192.168.200.0/24 y la interfaz enp0s3. Era la configuración del archivo original, porque el archivo nuevo no se había guardado bien. Se solucionó borrando el `kea-dhcp4.conf` y creándolo otra vez.
+> **Problema trobat:** la primera vegada que es va comprovar la sintaxi apareixia la subxarxa 192.168.200.0/24 i la interfície enp0s3. Era la configuració de l'arxiu original, perquè l'arxiu nou no s'havia desat bé. Es va solucionar esborrant el `kea-dhcp4.conf` i creant-lo de nou.
 
-Se reinicia el servicio y se comprueba su estado:
+Es reinicia el servei i se'n comprova l'estat:
 
 ```bash
 sudo systemctl restart kea-dhcp4-server
 sudo systemctl status kea-dhcp4-server
 ```
 
-![Servicio kea-dhcp4-server en marcha](media/cap9.png)
+![Servei kea-dhcp4-server en marxa](media/cap9.png)
 
-El servicio está **active (running)** y se ejecuta con el archivo `/etc/kea/kea-dhcp4.conf`.
+El servei està **active (running)** i s'executa amb l'arxiu `/etc/kea/kea-dhcp4.conf`.
 
 ---
 
-## 7. Wireshark en el cliente
+## 7. Wireshark al client
 
-Con el Zorin todavía en NAT se instala Wireshark:
+Amb el Zorin encara en NAT s'instal·la Wireshark:
 
 ```bash
 sudo apt install wireshark
 ```
 
-Durante la instalación pregunta si los usuarios sin privilegios pueden capturar paquetes. Se ha contestado **No**, que es la opción recomendada por seguridad, ya que Wireshark se abrirá con `sudo`.
+Durant la instal·lació pregunta si els usuaris sense privilegis poden capturar paquets. S'ha contestat **No**, que és l'opció recomanada per seguretat, ja que Wireshark s'obrirà amb `sudo`.
 
-![Wireshark instalado](media/cap10.png)
+![Wireshark instal·lat](media/cap10.png)
 
-Antes de cambiar de red se mira la configuración del Zorin con `ip a`. La interfaz es **enp0s3**, tiene la IP **10.0.2.15** que da el NAT de VirtualBox y su MAC es **08:00:27:a8:06:a5**:
+Abans de canviar de xarxa es mira la configuració del Zorin amb `ip a`. La interfície és **enp0s3**, té la IP **10.0.2.15** que dona el NAT de VirtualBox i la seva MAC és **08:00:27:a8:06:a5**:
 
 ![ip a del Zorin en NAT](media/cap11.png)
 
-Se abre Wireshark con `sudo wireshark`:
+S'obre Wireshark amb `sudo wireshark`:
 
 ![Pantalla inicial de Wireshark](media/cap12.png)
 
 ---
 
-## 8. Captura de la negociación DHCP
+## 8. Captura de la negociació DHCP
 
-Se sigue este orden:
+Se segueix aquest ordre:
 
-1. Se inicia la captura en la interfaz **enp0s3** y se aplica el filtro de visualización `dhcp`.
-2. Sin apagar la máquina, se cambia el adaptador del Zorin de **NAT** a **Red interna** con el nombre `Internet`, el mismo que el servidor:
+1. S'inicia la captura a la interfície **enp0s3** i s'aplica el filtre de visualització `dhcp`.
+2. Sense apagar la màquina, es canvia l'adaptador del Zorin de **NAT** a **Xarxa interna** amb el nom `Internet`, el mateix que el servidor:
 
-   ![Cambio del Zorin a Red interna](media/cap13.png)
+   ![Canvi del Zorin a Xarxa interna](media/cap13.png)
 
-3. Se fuerza la renovación de la IP con la herramienta gráfica: en la configuración de red del Zorin, se desactiva y se vuelve a activar la conexión cableada.
+3. Es força la renovació de la IP amb l'eina gràfica: a la configuració de xarxa del Zorin, es desactiva i es torna a activar la connexió per cable.
 
-Resultado de la captura:
+Resultat de la captura:
 
-![Captura DHCP en Wireshark](media/cap14.png)
+![Captura DHCP a Wireshark](media/cap14.png)
 
-| Nº | Paquete | IP origen | IP destino |
+| Núm. | Paquet | IP origen | IP destinació |
 |---|---|---|---|
 | 37 | DHCP Request | 0.0.0.0 | 255.255.255.255 |
 | 44 | DHCP **Discover** | 0.0.0.0 | 255.255.255.255 |
@@ -205,103 +205,103 @@ Resultado de la captura:
 | 46 | DHCP **Request** | 0.0.0.0 | 255.255.255.255 |
 | 47 | DHCP **ACK** | 192.169.7.1 | 192.169.7.10 |
 
-Se ve el proceso completo **DORA** (Discover, Offer, Request, ACK):
+Es veu el procés complet **DORA** (Discover, Offer, Request, ACK):
 
-- **Discover:** el cliente busca un servidor DHCP en la red.
-- **Offer:** el servidor le ofrece una IP, la 192.169.7.10, la primera del pool.
-- **Request:** el cliente acepta y pide formalmente esa IP.
-- **ACK:** el servidor confirma la concesión.
+- **Discover:** el client busca un servidor DHCP a la xarxa.
+- **Offer:** el servidor li ofereix una IP, la 192.169.7.10, la primera del pool.
+- **Request:** el client accepta i demana formalment aquesta IP.
+- **ACK:** el servidor confirma la concessió.
 
-El primer paquete (**37**, un Request) aparece antes del Discover porque el cliente intenta primero renovar la IP que tenía en NAT (10.0.2.15). El servidor Kea no le contesta, porque esa IP no pertenece a su subred, y entonces el cliente empieza el proceso normal desde el Discover.
+El primer paquet (**37**, un Request) apareix abans del Discover perquè el client intenta primer renovar la IP que tenia en NAT (10.0.2.15). El servidor Kea no li contesta, perquè aquesta IP no pertany a la seva subxarxa, i aleshores el client comença el procés normal des del Discover.
 
 ---
 
-## 9. Análisis de los paquetes: broadcast y unicast
+## 9. Anàlisi dels paquets: broadcast i unicast
 
-Para cada paquete se han mirado los apartados **Ethernet II** (direcciones MAC) e **Internet Protocol Version 4** (direcciones IP).
+Per a cada paquet s'han mirat els apartats **Ethernet II** (adreces MAC) i **Internet Protocol Version 4** (adreces IP).
 
-**Discover (paquete 44):**
+**Discover (paquet 44):**
 
-![Detalle del Discover](media/cap15.png)
+![Detall del Discover](media/cap15.png)
 
-**Offer (paquete 45):**
+**Offer (paquet 45):**
 
-![Detalle del Offer](media/cap16.png)
+![Detall de l'Offer](media/cap16.png)
 
-**Request (paquete 46):**
+**Request (paquet 46):**
 
-![Detalle del Request](media/cap17.png)
+![Detall del Request](media/cap17.png)
 
-**ACK (paquete 47):**
+**ACK (paquet 47):**
 
-![Detalle del ACK](media/cap18.png)
+![Detall de l'ACK](media/cap18.png)
 
-### Resumen
+### Resum
 
-| Paquete | MAC origen | MAC destino | IP origen | IP destino | Tipo MAC | Tipo IP |
+| Paquet | MAC origen | MAC destinació | IP origen | IP destinació | Tipus MAC | Tipus IP |
 |---|---|---|---|---|---|---|
-| Discover | 08:00:27:a8:06:a5 (cliente) | ff:ff:ff:ff:ff:ff | 0.0.0.0 | 255.255.255.255 | **Broadcast** | **Broadcast** |
-| Offer | 08:00:27:4d:84:e4 (servidor) | 08:00:27:a8:06:a5 (cliente) | 192.169.7.1 | 192.169.7.10 | **Unicast** | **Unicast** |
-| Request | 08:00:27:a8:06:a5 (cliente) | ff:ff:ff:ff:ff:ff | 0.0.0.0 | 255.255.255.255 | **Broadcast** | **Broadcast** |
-| ACK | 08:00:27:4d:84:e4 (servidor) | 08:00:27:a8:06:a5 (cliente) | 192.169.7.1 | 192.169.7.10 | **Unicast** | **Unicast** |
+| Discover | 08:00:27:a8:06:a5 (client) | ff:ff:ff:ff:ff:ff | 0.0.0.0 | 255.255.255.255 | **Broadcast** | **Broadcast** |
+| Offer | 08:00:27:4d:84:e4 (servidor) | 08:00:27:a8:06:a5 (client) | 192.169.7.1 | 192.169.7.10 | **Unicast** | **Unicast** |
+| Request | 08:00:27:a8:06:a5 (client) | ff:ff:ff:ff:ff:ff | 0.0.0.0 | 255.255.255.255 | **Broadcast** | **Broadcast** |
+| ACK | 08:00:27:4d:84:e4 (servidor) | 08:00:27:a8:06:a5 (client) | 192.169.7.1 | 192.169.7.10 | **Unicast** | **Unicast** |
 
-**Explicación:**
+**Explicació:**
 
-- Los paquetes que envía el **cliente** (Discover y Request) son **broadcast**, tanto en MAC como en IP. El cliente todavía no tiene IP (por eso usa 0.0.0.0 como origen) y no sabe dónde está el servidor, así que envía el mensaje a todos los equipos de la red. El Request también va en broadcast para que, si hubiera varios servidores DHCP, todos sepan qué oferta ha aceptado el cliente.
-- Los paquetes que envía el **servidor** (Offer y ACK) son **unicast**, tanto en MAC como en IP. El servidor ya conoce la MAC del cliente porque venía en el Discover, así que le responde directamente a él, a la IP que le está ofreciendo.
-
----
-
-## 10. Comprobación del cliente
-
-Con `ip a` e `ip route` se comprueba que el Zorin se ha configurado por DHCP:
-
-![ip a e ip route del Zorin](media/cap19.png)
-
-- **IP:** 192.169.7.11/24, dentro del pool.
-- **Puerta de enlace:** `default via 192.169.7.254 ... proto dhcp`, recibida por DHCP.
-- **Tiempo de concesión:** `valid_lft 3941sec`, es decir, los 4000 segundos configurados, que van bajando.
-
-> En la captura de Wireshark el cliente recibió la **.10**, pero en esta comprobación (hecha otro día, después de reiniciar las máquinas) recibió la **.11**. Kea todavía tenía la .10 registrada como concedida y le asignó la siguiente libre del pool. Es un comportamiento normal y la IP sigue estando dentro del rango.
-
-En los detalles de la conexión cableada se ven también el **DNS 8.8.8.8** y la MAC del cliente:
-
-![Detalles de la conexión cableada](media/cap20.png)
-
-El cliente **no tiene acceso a Internet**, y es lo esperado: la puerta de enlace 192.169.7.254 no existe en la red interna. La práctica solo pide que el cliente reciba bien la configuración.
-
-> **Problema encontrado:** al encender solo el Zorin, la conexión cableada no se conectaba. Era porque el Ubuntu Server estaba apagado y, en la red interna, es el único que reparte IP. Al encender el servidor, el cliente recibió la IP sin problemas.
+- Els paquets que envia el **client** (Discover i Request) són **broadcast**, tant en MAC com en IP. El client encara no té IP (per això fa servir 0.0.0.0 com a origen) i no sap on és el servidor, així que envia el missatge a tots els equips de la xarxa. El Request també va en broadcast perquè, si hi hagués diversos servidors DHCP, tots sàpiguen quina oferta ha acceptat el client.
+- Els paquets que envia el **servidor** (Offer i ACK) són **unicast**, tant en MAC com en IP. El servidor ja coneix la MAC del client perquè venia al Discover, així que li respon directament a ell, a la IP que li està oferint.
 
 ---
 
-## 11. Concesiones del servidor
+## 10. Comprovació del client
 
-Las concesiones se guardan en el archivo indicado en `lease-database`:
+Amb `ip a` i `ip route` es comprova que el Zorin s'ha configurat per DHCP:
+
+![ip a i ip route del Zorin](media/cap19.png)
+
+- **IP:** 192.169.7.11/24, dins del pool.
+- **Porta d'enllaç:** `default via 192.169.7.254 ... proto dhcp`, rebuda per DHCP.
+- **Temps de concessió:** `valid_lft 3941sec`, és a dir, els 4000 segons configurats, que van baixant.
+
+> A la captura de Wireshark el client va rebre la **.10**, però en aquesta comprovació (feta un altre dia, després de reiniciar les màquines) va rebre la **.11**. Kea encara tenia la .10 registrada com a concedida i li va assignar la següent lliure del pool. És un comportament normal i la IP continua estant dins del rang.
+
+Als detalls de la connexió per cable es veuen també el **DNS 8.8.8.8** i la MAC del client:
+
+![Detalls de la connexió per cable](media/cap20.png)
+
+El client **no té accés a Internet**, i és el que s'espera: la porta d'enllaç 192.169.7.254 no existeix a la xarxa interna. La pràctica només demana que el client rebi bé la configuració.
+
+> **Problema trobat:** en encendre només el Zorin, la connexió per cable no es connectava. Era perquè l'Ubuntu Server estava apagat i, a la xarxa interna, és l'únic que reparteix IP. En encendre el servidor, el client va rebre la IP sense problemes.
+
+---
+
+## 11. Concessions del servidor
+
+Les concessions es guarden a l'arxiu indicat a `lease-database`:
 
 ```bash
 cat /var/lib/kea/kea-leases4.csv
 ```
 
-> La presentación habla de `/var/lib/kea/dhcp4.leases`, pero en esta práctica el archivo es `kea-leases4.csv`, porque es el nombre que se puso en el `kea-dhcp4.conf`.
+> La presentació parla de `/var/lib/kea/dhcp4.leases`, però en aquesta pràctica l'arxiu és `kea-leases4.csv`, perquè és el nom que es va posar al `kea-dhcp4.conf`.
 
-![Archivo de concesiones](media/cap21.png)
+![Arxiu de concessions](media/cap21.png)
 
-Cada línea es una concesión. Los campos más importantes son:
+Cada línia és una concessió. Els camps més importants són:
 
 - **address:** la IP concedida, 192.169.7.11.
-- **hwaddr:** la MAC del cliente, 08:00:27:a8:06:a5.
-- **valid_lifetime:** la duración, 4000 segundos.
-- **expire:** cuándo caduca (en formato de tiempo Unix).
-- **subnet_id:** 1, el `id` de la subred del conf.
-- **hostname:** el nombre del cliente, `fxsty-virtualbox`.
+- **hwaddr:** la MAC del client, 08:00:27:a8:06:a5.
+- **valid_lifetime:** la durada, 4000 segons.
+- **expire:** quan caduca (en format de temps Unix).
+- **subnet_id:** 1, l'`id` de la subxarxa del conf.
+- **hostname:** el nom del client, `fxsty-virtualbox`.
 
-La misma IP aparece varias veces porque Kea añade una línea nueva cada vez que se renueva o modifica la concesión (por ejemplo, cada vez que se ha desactivado y activado la red del cliente). La línea con `valid_lifetime` 0 corresponde al momento en que el cliente liberó la IP al desconectarse.
+La mateixa IP apareix diverses vegades perquè Kea afegeix una línia nova cada vegada que es renova o es modifica la concessió (per exemple, cada vegada que s'ha desactivat i activat la xarxa del client). La línia amb `valid_lifetime` 0 correspon al moment en què el client va alliberar la IP en desconnectar-se.
 
 ---
 
-## 12. Reserva de una IP para el cliente
+## 12. Reserva d'una IP per al client
 
-Para que el Zorin reciba siempre la misma IP, se crea una **reserva** con su MAC (`08:00:27:a8:06:a5`) y la IP **192.169.7.55**. La reserva se pone dentro del bloque de la subred, pero **fuera del pool** (la .55 no está entre la .10 y la .50), para evitar conflictos con las IP que se reparten de forma dinámica.
+Perquè el Zorin rebi sempre la mateixa IP, es crea una **reserva** amb la seva MAC (`08:00:27:a8:06:a5`) i la IP **192.169.7.55**. La reserva es posa dins del bloc de la subxarxa, però **fora del pool** (la .55 no és entre la .10 i la .50), per evitar conflictes amb les IP que es reparteixen de manera dinàmica.
 
 ```json
 "pools": [ { "pool": "192.169.7.10 - 192.169.7.50" } ],
@@ -310,13 +310,13 @@ Para que el Zorin reciba siempre la misma IP, se crea una **reserva** con su MAC
 ],
 ```
 
-Al añadir la reserva, hay que poner una **coma** después del `]` de `pools`, porque ya no es el último elemento del bloque.
+En afegir la reserva, cal posar una **coma** després del `]` de `pools`, perquè ja no és l'últim element del bloc.
 
-Archivo completo con la reserva:
+Arxiu complet amb la reserva:
 
-![kea-dhcp4.conf con la reserva](media/cap22.png)
+![kea-dhcp4.conf amb la reserva](media/cap22.png)
 
-Se comprueba la sintaxis, se reinicia el servicio y se verifica que está en marcha:
+Es comprova la sintaxi, es reinicia el servei i es verifica que està en marxa:
 
 ```bash
 sudo kea-dhcp4 -t /etc/kea/kea-dhcp4.conf
@@ -324,17 +324,17 @@ sudo systemctl restart kea-dhcp4-server
 sudo systemctl status kea-dhcp4-server
 ```
 
-![Sintaxis y estado después de la reserva](media/cap23.png)
+![Sintaxi i estat després de la reserva](media/cap23.png)
 
-En el Zorin se desactiva y se vuelve a activar la conexión de red para que pida otra vez la IP. Ahora recibe la **192.169.7.55**, la IP reservada:
+Al Zorin es desactiva i es torna a activar la connexió de xarxa perquè demani de nou la IP. Ara rep la **192.169.7.55**, la IP reservada:
 
-![El Zorin con la IP reservada 192.169.7.55](media/cap24.png)
+![El Zorin amb la IP reservada 192.169.7.55](media/cap24.png)
 
 ---
 
-## 13. Conclusiones
+## 13. Conclusions
 
-- Se ha instalado y configurado un servidor DHCP con **Kea** en Ubuntu Server, que reparte IP, puerta de enlace y DNS a los clientes de la red interna 192.169.7.0/24.
-- Con **Wireshark** se ha capturado el proceso **DORA** y se ha comprobado que los mensajes del cliente (Discover y Request) son **broadcast** y los del servidor (Offer y ACK) son **unicast**, tanto a nivel de MAC como de IP.
-- Con una **reserva** se puede asignar siempre la misma IP a un equipo concreto a partir de su MAC.
-- Al trabajar con el archivo JSON de Kea es muy importante revisar las llaves, los corchetes y las comas, y comprobar siempre la sintaxis con `kea-dhcp4 -t` antes de reiniciar el servicio.
+- S'ha instal·lat i configurat un servidor DHCP amb **Kea** a Ubuntu Server, que reparteix IP, porta d'enllaç i DNS als clients de la xarxa interna 192.169.7.0/24.
+- Amb **Wireshark** s'ha capturat el procés **DORA** i s'ha comprovat que els missatges del client (Discover i Request) són **broadcast** i els del servidor (Offer i ACK) són **unicast**, tant a nivell de MAC com d'IP.
+- Amb una **reserva** es pot assignar sempre la mateixa IP a un equip concret a partir de la seva MAC.
+- Quan es treballa amb l'arxiu JSON de Kea és molt important revisar les claus, els claudàtors i les comes, i comprovar sempre la sintaxi amb `kea-dhcp4 -t` abans de reiniciar el servei.
